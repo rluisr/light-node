@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -194,12 +195,20 @@ func CollectSampleAndVerify() {
 			err = SubmitVerifiedProof(*walletAddress, *signature, *proof, *receipt, timestamp)
 			if err != nil {
 				log.Printf("Failed to submit verified proof: %v", err)
+
+				// 429エラーの場合は6分間待機
+				if errStr := err.Error(); strings.Contains(errStr, "429") {
+					waitTime := 6 * time.Minute
+					log.Printf("Received rate limit (429) error. Waiting for %v before continuing...", waitTime)
+					time.Sleep(waitTime)
+				}
+
 				// Continue to the next tree if submission fails
 				continue
-			} else {
-				log.Printf("Successfully submitted verified proof for tree %s", treeId)
-				verificationSuccessful = true
 			}
+
+			log.Printf("Successfully submitted verified proof for tree %s", treeId)
+			verificationSuccessful = true
 
 			// Update the tree state with the verified root
 			stateMutex.Lock()
